@@ -3,6 +3,8 @@ Downscale and restore pixel art images that have been resized or corrupted.
 
 This is primarily created to fix compression issues from saving pixel art in jpg format.
 
+Built into Aseprite with Retro Diffusion pixel art generator (Edit -> FX -> Repair pixel art): https://astropulse.gumroad.com/l/RetroDiffusion
+
 Exaggerated example:
 
 ![Example](https://github.com/Astropulse/pixeldetector/assets/61034487/f8ae2802-42c1-4dba-af56-fe849ac8915c)
