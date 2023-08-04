@@ -1,15 +1,9 @@
-import os, argparse, time
+import time
 from PIL import Image
 import numpy as np
 import scipy
 from itertools import product
 
-ap = argparse.ArgumentParser()
-ap.add_argument("-i", "--input", required = True, help = "Path to input image")
-ap.add_argument("-o", "--output", required = False, default="output.png", help = "Path to save output image")
-ap.add_argument("-m", "--max", required = False, type=int, default=128, help = "Max colors for computation, more = slower")
-ap.add_argument("-p", "--palette", required = False, action="store_true", help = "Automatically reduce the image to predicted color palette")
-args = vars(ap.parse_args())
 
 def kCentroid(image: Image, width: int, height: int, centroids: int):
     image = image.convert("RGB")
@@ -39,7 +33,7 @@ def kCentroid(image: Image, width: int, height: int, centroids: int):
     return Image.fromarray(downscaled, mode='RGB')
 
 def pixel_detect(image: Image):
-    # Thanks to https://github.com/paultron for optimizing my garbage code 
+    # Thanks to https://github.com/paultron for optimizing my garbage code
     # I swapped the axis so they accurately reflect the horizontal and vertical scaling factor for images with uneven ratios
 
     # Convert the image to a NumPy array
@@ -56,7 +50,7 @@ def pixel_detect(image: Image):
     # Find peaks in the horizontal and vertical sums
     hpeaks, _ = scipy.signal.find_peaks(hsum, distance=1, height=0.0)
     vpeaks, _ = scipy.signal.find_peaks(vsum, distance=1, height=0.0)
-    
+
     # Compute spacing between the peaks
     hspacing = np.diff(hpeaks)
     vspacing = np.diff(vpeaks)
@@ -77,7 +71,7 @@ def determine_best_k(image: Image, max_k: int):
     for k in range(1, max_k + 1):
         quantized_image = image.quantize(colors=k, method=0, kmeans=k, dither=0)
         centroids = np.array(quantized_image.getpalette()[:k * 3]).reshape(-1, 3)
-        
+
         # Calculate distortions
         distances = np.linalg.norm(pixel_indices[:, np.newaxis] - centroids, axis=2)
         min_distances = np.min(distances, axis=1)
@@ -85,7 +79,7 @@ def determine_best_k(image: Image, max_k: int):
 
     # Calculate the rate of change of distortions
     rate_of_change = np.diff(distortions) / np.array(distortions[:-1])
-    
+
     # Find the elbow point (best k value)
     if len(rate_of_change) == 0:
         best_k = 2
@@ -95,10 +89,7 @@ def determine_best_k(image: Image, max_k: int):
 
     return best_k
 
-if os.path.isfile(args["input"]):
-    # Open input image
-    image = Image.open(args["input"]).convert('RGB')
-
+def run(image: Image, rescale = 1, palette: bool = False, palette_max: int = 128):
     # Start timer
     start = round(time.time()*1000)
 
@@ -110,14 +101,25 @@ if os.path.isfile(args["input"]):
     scale = max(hf, vf)
     output = downscale
 
-    if args["palette"]:
+    if palette:
         # Start timer
         start = round(time.time()*1000)
 
         # Reduce color palette using elbow method
-        best_k = determine_best_k(downscale, args["max"])
+        best_k = determine_best_k(downscale, palette_max)
         output = downscale.quantize(colors=best_k, method=1, kmeans=best_k, dither=0).convert('RGB')
 
         print(f"Palette reduced to {best_k} colors in {round(time.time()*1000)-start} milliseconds")
-    
-    output.save(args["output"])
+
+    if rescale > 1:
+        output = output.resize(
+            (output.width * rescale, output.height * rescale),
+            resample=Image.Resampling.NEAREST
+        )
+    elif rescale < 0:
+        output = output.resize(
+            (image.width, image.height),
+            resample=Image.Resampling.NEAREST
+        )
+
+    return output
